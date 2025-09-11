@@ -1,0 +1,23 @@
+{
+"manifest_version": 3,
+"name": "User Interaction Recorder",
+"version": "1.2.0",
+"description": "Record user actions (clicks, inputs, navigation) and send them to a local server to generate test cases.",
+"permissions": ["storage", "activeTab", "scripting"],
+"host_permissions": [
+"http://localhost:3000/*",
+"<all_urls>"
+],
+"background": {
+"service_worker": "background.js"
+},
+"content_scripts": [
+{
+"matches": ["<all_urls>"],
+"js": ["contentScript.js"],
+"run_at": "document_idle",
+"all_frames": true,
+"match_about_blank": false
+}
+]
+}

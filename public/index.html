@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>User Interaction Recorder - Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f9f9f9; }
+    h1 { color: #333; }
+    button {
+      padding: 8px 14px; margin: 5px; border: none; border-radius: 4px;
+      background: #007bff; color: #fff; cursor: pointer;
+    }
+    button:hover { background: #0056b3; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; background: #fff; }
+    th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; font-size: 14px; }
+    th { background: #eee; }
+    .button-group { display: flex; gap: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Generated Test Cases</h1>
+  <div class="button-group">
+    <button id="refreshBtn">Refresh</button>
+    <button id="clearBtn">Clear Data</button>
+    <button id="exportBtn">Export to Excel</button>
+    <button id="healthCheckBtn">Check Server</button>
+  </div>
+
+  <div id="serverStatus" style="margin: 10px 0; padding: 5px; display: none;"></div>
+
+  <script>
+    // Add this function
+    async function checkServerHealth() {
+      const statusDiv = document.getElementById('serverStatus');
+      statusDiv.style.display = 'block';
+      statusDiv.style.background = '#f8f9fa';
+      statusDiv.style.border = '1px solid #ddd';
+      statusDiv.style.padding = '10px';
+      statusDiv.textContent = 'Checking server connection...';
+      
+      try {
+        const res = await fetch('/health');
+        const data = await res.json();
+        if (data.ok) {
+          statusDiv.style.background = '#d4edda';
+          statusDiv.style.color = '#155724';
+          statusDiv.textContent = '✅ Server is running and reachable!';
+        } else {
+          statusDiv.style.background = '#f8d7da';
+          statusDiv.style.color = '#721c24';
+          statusDiv.textContent = '❌ Server responded but with an error.';
+        }
+      } catch (err) {
+        statusDiv.style.background = '#f8d7da';
+        statusDiv.style.color = '#721c24';
+        statusDiv.textContent = `❌ Cannot reach server: ${err.message}`;
+      }
+    }
+    
+    // Add this event listener
+    document.getElementById('healthCheckBtn').addEventListener('click', checkServerHealth);
+  </script>
+
+  <table id="testCasesTable">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Step</th>
+        <th>Action</th>
+        <th>Target</th>
+        <th>Value</th>
+        <th>URL</th>
+        <th>XPath</th>
+        <th>Expected</th>
+        <th>Type</th>
+        <th>Time</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    let refreshInterval;
+    
+    async function fetchTestCases() {
+      try {
+        console.log("[UI] Fetching test cases...");
+        const res = await fetch('/testcases');
+        const data = await res.json();
+        console.log("[UI] Got test cases:", data);
+        populateTable(data);
+      } catch (err) {
+        console.error("[UI] Failed to fetch test cases:", err);
+      }
+    }
+
+    function populateTable(testCases) {
+      const tbody = document.querySelector('#testCasesTable tbody');
+      tbody.innerHTML = '';
+      if (!testCases.length) {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td colspan="10" style="text-align:center;color:#666;">No test cases yet</td>`;
+        tbody.appendChild(row);
+        return;
+      }
+      testCases.forEach(tc => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${tc.id}</td>
+          <td>${tc.step}</td>
+          <td>${tc.action}</td>
+          <td>${tc.target || ''}</td>
+          <td>${tc.value || ''}</td>
+          <td>${tc.url || ''}</td>
+          <td>${tc.xpath || 'N/A'}</td>
+          <td>${tc.expected}</td>
+          <td>${tc.testType}</td>
+          <td>${new Date(tc.timestamp).toLocaleString()}</td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    async function clearData() {
+      console.log("[UI] Sending clear request...");
+      try {
+        const res = await fetch('/clear', { method: 'POST' });
+        const data = await res.json();
+        console.log("[UI] Clear response:", data);
+        if (data.ok) fetchTestCases();
+      } catch (err) {
+        console.error("[UI] Clear request failed:", err);
+      }
+    }
+    
+    function exportToExcel() {
+      console.log("[UI] Exporting to Excel...");
+      window.location.href = '/export-excel';
+    }
+
+    function startAutoRefresh() {
+      // Clear any existing interval
+      if (refreshInterval) clearInterval(refreshInterval);
+      // Refresh every 2 seconds
+      refreshInterval = setInterval(async () => {
+        const statusIndicator = document.createElement('div');
+        statusIndicator.style.position = 'fixed';
+        statusIndicator.style.top = '10px';
+        statusIndicator.style.right = '10px';
+        statusIndicator.style.padding = '5px 10px';
+        statusIndicator.style.background = '#007bff';
+        statusIndicator.style.color = 'white';
+        statusIndicator.style.borderRadius = '3px';
+        statusIndicator.textContent = 'Refreshing...';
+        document.body.appendChild(statusIndicator);
+        
+        await fetchTestCases();
+        
+        // Remove indicator after refresh
+        setTimeout(() => {
+          document.body.removeChild(statusIndicator);
+        }, 500);
+      }, 2000);
+      console.log("[UI] Auto-refresh enabled");
+    }
+
+    function stopAutoRefresh() {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+        console.log("[UI] Auto-refresh disabled");
+      }
+    }
+
+    document.getElementById('refreshBtn').addEventListener('click', fetchTestCases);
+    document.getElementById('clearBtn').addEventListener('click', clearData);
+    document.getElementById('exportBtn').addEventListener('click', exportToExcel);
+
+    // Initial load and start auto-refresh
+    fetchTestCases();
+    startAutoRefresh();
+  </script>
+</body>
+</html>
