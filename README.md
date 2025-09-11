@@ -60,3 +60,7 @@ open the CMD go into the folder and make server setup.
    ```bash
    npm install
    npm start
+
+
+<img width="2775" height="6192" alt="image" src="https://github.com/user-attachments/assets/86c97616-970d-4422-a99d-125f9e7e6f94" />
+
