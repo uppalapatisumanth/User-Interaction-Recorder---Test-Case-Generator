@@ -33,9 +33,29 @@ The User Interaction Recorder is a browser extension and server application that
 - **Solution**: Easily re-record flows when interfaces change
 
 ## How to Use
+Browser Extension Installation
+## 🚀 How to Install This Chrome Extension
+
+Follow these steps to add the extension manually:
+
+1. Download or clone this repository:
+   - Click **Code → Download ZIP**
+   - Extract the ZIP file on your computer
+
+2. Open **Google Chrome** and go to:
+
+3. Enable **Developer Mode** (top-right corner).
+
+4. Click **Load unpacked** button.
+
+5. Select the extracted project folder (the one that contains `manifest.json`).
+
+6. The extension will be added to Chrome.
+- You can see the extension icon in the toolbar (top-right).
+- Pin it if needed for quick access.
 
 ### Installation
-
+open the CMD go into the folder and make server setup.
 1. **Server Setup**:
    ```bash
    npm install
