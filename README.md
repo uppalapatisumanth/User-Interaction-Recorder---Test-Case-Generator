@@ -53,13 +53,11 @@ Follow these steps to add the extension manually:
 6. The extension will be added to Chrome.
 - You can see the extension icon in the toolbar (top-right).
 - Pin it if needed for quick access.
-7. Download the Node.js 
+7. Download the Node.js after check in cmd node -v  
 
 ### Installation
 open the CMD go into the folder and make server setup.
-1. **Server Setup**:
- 
-node -v   
+1. **Server Setup**: 
 npm install express or 
 npm install
 npm start
