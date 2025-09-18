@@ -58,10 +58,10 @@ Follow these steps to add the extension manually:
 ### Installation
 open the CMD go into the folder and make server setup.
 1. **Server Setup**:
-   ```bash
+ 
 node -v   
- npm install express or 
- npm install
+npm install express or 
+npm install
 npm start
 
 
