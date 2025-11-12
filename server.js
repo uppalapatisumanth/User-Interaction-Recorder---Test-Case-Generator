@@ -50,6 +50,7 @@ function actionsToTestCases(batch) {
     expected: expected(a),
     testType: classify(a),
     xpath: a.xpath || "N/A",
+    cssSelector: a.cssSelector || "N/A",
     actual: a.actual || "",
     error: a.error || "",
     timestamp: a.timestamp || Date.now(),
