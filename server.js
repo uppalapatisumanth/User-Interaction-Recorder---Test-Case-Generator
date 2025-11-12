@@ -175,6 +175,7 @@ class GeneratedTestSuite(unittest.TestCase):
 
     if (tc.action === 'navigation') {
       stepCode += `        driver.get("${tc.url}")\n`;
+      stepCode += `        time.sleep(1) # Wait for page to stabilize\n`;
     } else {
       const locator = `(By.XPATH, '${tc.xpath.replace(/'/g, "\\'")}')`;
       stepCode += `
@@ -191,7 +192,12 @@ class GeneratedTestSuite(unittest.TestCase):
       stepCode += `
             driver.save_screenshot(f"{self.screenshots_dir}/${i + 1}_${tc.action}.png")
         except (TimeoutException, NoSuchElementException) as e:
-            print(f"Error in step ${tc.step}: Could not find element with XPATH ${escapedXpath}")
+            print(f"\\n--- DEBUGGING HELP ---")
+            print(f"Error in step ${tc.step}: A TimeoutException means the element could not be found within the time limit.")
+            print(f"Attempted to find element with XPath: ${escapedXpath}")
+            print(f"This can happen if the page is slow to load, the element is not visible, or the XPath is incorrect.")
+            print(f"Check the error screenshot: {self.screenshots_dir}/${i + 1}_${tc.action}_error.png")
+            print(f"----------------------\\n")
             driver.save_screenshot(f"{self.screenshots_dir}/${i + 1}_${tc.action}_error.png")
             self.fail(f"Test failed at step ${tc.step}: {e}")
 `;
