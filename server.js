@@ -145,7 +145,7 @@ app.post('/generate-selenium', (req, res) => {
 
 function generateSeleniumScript(testCases, screenshotsSubDir) {
   const imports = `
-import unittest
+import pytest
 import time
 import os
 from selenium import webdriver
@@ -154,87 +154,84 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
-class GeneratedTestSuite(unittest.TestCase):
-    def setUp(self):
-        self.driver = webdriver.Chrome()
-        self.driver.implicitly_wait(10)
-        self.screenshots_dir = "${screenshotsSubDir}"
-        self.debug_dir = "debug"
-        if not os.path.exists(self.debug_dir):
-            os.makedirs(self.debug_dir)
+SCREENSHOTS_DIR = "${screenshotsSubDir}"
+DEBUG_DIR = "debug"
 
-    def tearDown(self):
-        self.driver.quit()
+@pytest.fixture
+def driver():
+    # Setup
+    driver = webdriver.Chrome()
+    driver.implicitly_wait(10)
+    if not os.path.exists(SCREENSHOTS_DIR):
+        os.makedirs(SCREENSHOTS_DIR)
+    if not os.path.exists(DEBUG_DIR):
+        os.makedirs(DEBUG_DIR)
 
-    def find_element_with_retry(self, wait, step_num, xpath, css_selector):
+    yield driver
+
+    # Teardown
+    driver.quit()
+
+def find_element_with_retry(driver, wait, step_num, xpath, css_selector):
+    try:
+        return wait.until(EC.element_to_be_clickable((By.XPATH, xpath)))
+    except TimeoutException:
+        print(f"Step {step_num}: Could not find element with XPath: {xpath}. Retrying with CSS selector.")
         try:
-            # First, try with XPath, waiting for the element to be clickable
-            return wait.until(EC.element_to_be_clickable((By.XPATH, xpath)))
+            return wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, css_selector)))
         except TimeoutException:
-            print(f"Step {step_num}: Could not find element with XPath: {xpath}. Retrying with CSS selector.")
-            try:
-                # Fallback to CSS selector
-                return wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, css_selector)))
-            except TimeoutException:
-                # If both fail, dump page source and fail the test
-                page_source_path = os.path.join(self.debug_dir, f"page_source_step_{step_num}.html")
-                with open(page_source_path, "w", encoding="utf-8") as f:
-                    f.write(self.driver.page_source)
+            page_source_path = os.path.join(DEBUG_DIR, f"page_source_step_{step_num}.html")
+            with open(page_source_path, "w", encoding="utf-8") as f:
+                f.write(driver.page_source)
 
-                print(f"\\n--- DEBUGGING HELP ---")
-                print(f"Error in step {step_num}: Element not found or not clickable with either XPath or CSS selector.")
-                print(f"Attempted XPath: {xpath}")
-                print(f"Attempted CSS Selector: {css_selector}")
-                print(f"The page source at the time of failure has been saved to: {page_source_path}")
-                print(f"----------------------\\n")
+            print(f"\\n--- DEBUGGING HELP ---")
+            print(f"Error in step {step_num}: Element not found or not clickable.")
+            print(f"XPath: {xpath}")
+            print(f"CSS Selector: {css_selector}")
+            print(f"Page source saved to: {page_source_path}")
+            print(f"----------------------\\n")
 
-                raise
+            raise
 
-    def test_recorded_flow(self):
-        driver = self.driver
-        wait = WebDriverWait(driver, 15)
+def test_recorded_flow(driver):
+    wait = WebDriverWait(driver, 15)
 `;
 
   const steps = testCases.map((tc, i) => {
     const stepNum = i + 1;
     let stepCode = `
-        # Step ${stepNum}: ${tc.action} on target "${tc.target}"
-        # URL: ${tc.url}
+    # Step ${stepNum}: ${tc.action} on target "${tc.target}"
+    # URL: ${tc.url}
 `;
 
     if (tc.action === 'navigation') {
-      stepCode += `        driver.get("${tc.url}")\n`;
-      stepCode += `        time.sleep(1) # Wait for page to stabilize\n`;
+      stepCode += `    driver.get("${tc.url}")\n`;
+      stepCode += `    time.sleep(1)\n`;
     } else {
       const xpath = tc.xpath.replace(/'/g, "\\'");
       const cssSelector = tc.cssSelector.replace(/'/g, "\\'");
       stepCode += `
-        try:
-            element = self.find_element_with_retry(wait, ${stepNum}, '${xpath}', '${cssSelector}')
+    try:
+        element = find_element_with_retry(driver, wait, ${stepNum}, '${xpath}', '${cssSelector}')
 `;
       if (tc.action === 'click') {
-        stepCode += `            element.click()\n`;
+        stepCode += `        element.click()\n`;
       } else if (tc.action === 'input') {
-        stepCode += `            element.clear()\n`;
-        stepCode += `            element.send_keys("${tc.value.replace(/"/g, '\\"')}")\n`;
+        stepCode += `        element.clear()\n`;
+        stepCode += `        element.send_keys("${tc.value.replace(/"/g, '\\"')}")\n`;
       }
       stepCode += `
-            driver.save_screenshot(f"{self.screenshots_dir}/${stepNum}_${tc.action}.png")
-        except (TimeoutException, NoSuchElementException) as e:
-            error_screenshot_path = f"{self.screenshots_dir}/${stepNum}_${tc.action}_error.png"
-            driver.save_screenshot(error_screenshot_path)
-            self.fail(f"Test failed at step ${stepNum}. See debug info above. Screenshot: {error_screenshot_path}")
+        driver.save_screenshot(os.path.join(SCREENSHOTS_DIR, f"${stepNum}_${tc.action}.png"))
+    except (TimeoutException, NoSuchElementException) as e:
+        error_screenshot_path = os.path.join(SCREENSHOTS_DIR, f"${stepNum}_${tc.action}_error.png")
+        driver.save_screenshot(error_screenshot_path)
+        pytest.fail(f"Test failed at step ${stepNum}. See debug info. Screenshot: {error_screenshot_path}", pytrace=False)
 `;
     }
     return stepCode;
   }).join('');
 
-  const suite = `
-if __name__ == "__main__":
-    unittest.main()
-`;
-
-  return imports + steps + suite;
+  return imports + steps;
 }
 
 // Serve static files

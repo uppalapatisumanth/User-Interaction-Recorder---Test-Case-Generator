@@ -77,13 +77,16 @@ This tool can automatically generate a Python Selenium script from your recorded
 To run the generated test script, you'll need:
 
 - Python 3
-- Selenium (`pip install selenium`)
-- A WebDriver for your browser (e.g., ChromeDriver)
+- The `pytest` framework and `selenium` library. Install them with pip:
+  ```bash
+  pip install pytest selenium
+  ```
+- A WebDriver for your browser (e.g., ChromeDriver).
 
-Execute the script from your terminal:
+Execute the script from your terminal using the `pytest` command:
 
 ```bash
-python generated-scripts/your_test_script_name.py
+pytest generated-scripts/your_test_script_name.py
 ```
 
 ---
