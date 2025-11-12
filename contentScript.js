@@ -116,6 +116,46 @@
     return { xpath: "N/A", validated: false, needsReview: true };
   }
 
+  function getCssSelector(el) {
+    if (!el || el.nodeType !== 1) return "N/A";
+
+    const validate = (selector) => {
+        if (!selector) return false;
+        try {
+            return document.querySelectorAll(selector).length === 1;
+        } catch (e) {
+            return false;
+        }
+    };
+
+    // --- STRATEGY 1: ID ---
+    if (el.id) {
+        const selector = `#${el.id}`;
+        if (validate(selector)) return selector;
+    }
+
+    // --- STRATEGY 2: STABLE ATTRIBUTES ---
+    const stableAttrs = ["data-testid", "data-cy", "data-test", "name", "role"];
+    for (const attr of stableAttrs) {
+        const val = el.getAttribute(attr);
+        if (val) {
+            const selector = `${el.tagName.toLowerCase()}[${attr}="${val}"]`;
+            if (validate(selector)) return selector;
+        }
+    }
+
+    // --- STRATEGY 3: CLASS NAMES ---
+    if (el.className && typeof el.className === 'string') {
+        const stableClasses = el.className.split(' ').filter(c => c && !/^[0-9]/.test(c));
+        if (stableClasses.length > 0) {
+            const selector = `.${stableClasses.join('.')}`;
+            if (validate(selector)) return selector;
+        }
+    }
+
+    return "N/A";
+  }
+
   function currentUrl() {
     try { return location.href; } catch { return ''; }
   }
@@ -155,6 +195,7 @@
     if (stopped) return;
     const el = e.target;
     const { xpath, validated, needsReview } = getXPath(el);
+    const cssSelector = getCssSelector(el);
 
     let value = '';
     if (el.hasAttribute('value')) {
@@ -169,6 +210,7 @@
       value: value,
       url: currentUrl(),
       xpath,
+      cssSelector,
       xpathValidated: validated,
       xpathNeedsReview: needsReview,
       timestamp: safeNow()
@@ -189,12 +231,14 @@
 
     if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)) return;
     const { xpath, validated, needsReview } = getXPath(el);
+    const cssSelector = getCssSelector(el);
     const action = {
       type: 'input',
       target: toLabel(el),
       value: value,
       url: currentUrl(),
       xpath,
+      cssSelector,
       xpathValidated: validated,
       xpathNeedsReview: needsReview,
       timestamp: safeNow()
@@ -207,12 +251,14 @@
     if (stopped) return;
     const el = e.target;
     const { xpath, validated, needsReview } = getXPath(el);
+    const cssSelector = getCssSelector(el);
     const action = {
       type: 'formSubmit',
       target: toLabel(el),
       value: '',
       url: currentUrl(),
       xpath,
+      cssSelector,
       xpathValidated: validated,
       xpathNeedsReview: needsReview,
       timestamp: safeNow()
@@ -229,6 +275,7 @@
       value: '',
       url: currentUrl(),
       xpath: 'N/A',
+      cssSelector: 'N/A',
       xpathValidated: true,
       xpathNeedsReview: false,
       timestamp: safeNow()

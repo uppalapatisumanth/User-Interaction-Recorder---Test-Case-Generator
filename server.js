@@ -146,6 +146,7 @@ function generateSeleniumScript(testCases, screenshotsSubDir) {
   const imports = `
 import unittest
 import time
+import os
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -157,9 +158,36 @@ class GeneratedTestSuite(unittest.TestCase):
         self.driver = webdriver.Chrome()
         self.driver.implicitly_wait(10)
         self.screenshots_dir = "${screenshotsSubDir}"
+        self.debug_dir = "debug"
+        if not os.path.exists(self.debug_dir):
+            os.makedirs(self.debug_dir)
 
     def tearDown(self):
         self.driver.quit()
+
+    def find_element_with_retry(self, wait, step_num, xpath, css_selector):
+        try:
+            # First, try with XPath, waiting for the element to be clickable
+            return wait.until(EC.element_to_be_clickable((By.XPATH, xpath)))
+        except TimeoutException:
+            print(f"Step {step_num}: Could not find element with XPath: {xpath}. Retrying with CSS selector.")
+            try:
+                # Fallback to CSS selector
+                return wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, css_selector)))
+            except TimeoutException:
+                # If both fail, dump page source and fail the test
+                page_source_path = os.path.join(self.debug_dir, f"page_source_step_{step_num}.html")
+                with open(page_source_path, "w", encoding="utf-8") as f:
+                    f.write(self.driver.page_source)
+
+                print(f"\\n--- DEBUGGING HELP ---")
+                print(f"Error in step {step_num}: Element not found or not clickable with either XPath or CSS selector.")
+                print(f"Attempted XPath: {xpath}")
+                print(f"Attempted CSS Selector: {css_selector}")
+                print(f"The page source at the time of failure has been saved to: {page_source_path}")
+                print(f"----------------------\\n")
+
+                raise
 
     def test_recorded_flow(self):
         driver = self.driver
@@ -167,20 +195,21 @@ class GeneratedTestSuite(unittest.TestCase):
 `;
 
   const steps = testCases.map((tc, i) => {
+    const stepNum = i + 1;
     let stepCode = `
-        # Step ${tc.step}: ${tc.action} on target "${tc.target}"
+        # Step ${stepNum}: ${tc.action} on target "${tc.target}"
         # URL: ${tc.url}
-        # Timestamp: ${new Date(tc.timestamp).toLocaleString()}
 `;
 
     if (tc.action === 'navigation') {
       stepCode += `        driver.get("${tc.url}")\n`;
       stepCode += `        time.sleep(1) # Wait for page to stabilize\n`;
     } else {
-      const locator = `(By.XPATH, '${tc.xpath.replace(/'/g, "\\'")}')`;
+      const xpath = tc.xpath.replace(/'/g, "\\'");
+      const cssSelector = tc.cssSelector.replace(/'/g, "\\'");
       stepCode += `
         try:
-            element = wait.until(EC.presence_of_element_located(${locator}))
+            element = self.find_element_with_retry(wait, ${stepNum}, '${xpath}', '${cssSelector}')
 `;
       if (tc.action === 'click') {
         stepCode += `            element.click()\n`;
@@ -188,18 +217,12 @@ class GeneratedTestSuite(unittest.TestCase):
         stepCode += `            element.clear()\n`;
         stepCode += `            element.send_keys("${tc.value.replace(/"/g, '\\"')}")\n`;
       }
-      const escapedXpath = tc.xpath.replace(/"/g, '\\"');
       stepCode += `
-            driver.save_screenshot(f"{self.screenshots_dir}/${i + 1}_${tc.action}.png")
+            driver.save_screenshot(f"{self.screenshots_dir}/${stepNum}_${tc.action}.png")
         except (TimeoutException, NoSuchElementException) as e:
-            print(f"\\n--- DEBUGGING HELP ---")
-            print(f"Error in step ${tc.step}: A TimeoutException means the element could not be found within the time limit.")
-            print(f"Attempted to find element with XPath: ${escapedXpath}")
-            print(f"This can happen if the page is slow to load, the element is not visible, or the XPath is incorrect.")
-            print(f"Check the error screenshot: {self.screenshots_dir}/${i + 1}_${tc.action}_error.png")
-            print(f"----------------------\\n")
-            driver.save_screenshot(f"{self.screenshots_dir}/${i + 1}_${tc.action}_error.png")
-            self.fail(f"Test failed at step ${tc.step}: {e}")
+            error_screenshot_path = f"{self.screenshots_dir}/${stepNum}_${tc.action}_error.png"
+            driver.save_screenshot(error_screenshot_path)
+            self.fail(f"Test failed at step ${stepNum}. See debug info above. Screenshot: {error_screenshot_path}")
 `;
     }
     return stepCode;
