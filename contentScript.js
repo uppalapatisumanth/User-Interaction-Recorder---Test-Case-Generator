@@ -35,6 +35,10 @@
     if (el.id) {
         const xpath = `//*[@id="${el.id}"]`;
         if (validate(xpath)) return { xpath, validated: true };
+
+        // Case-insensitive ID check
+        const insensitiveXpath = `//*[translate(@id, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz') = '${el.id.toLowerCase()}']`;
+        if (validate(insensitiveXpath)) return { xpath: insensitiveXpath, validated: true, needsReview: true };
     }
 
     // --- STRATEGY 2: STABLE ATTRIBUTES ---
@@ -49,6 +53,16 @@
     const dataAttrs = Array.from(el.attributes).filter(a => a.name.startsWith('data-'));
     for (const attr of dataAttrs) {
         const xpath = `//${el.tagName.toLowerCase()}[@${attr.name}="${attr.value}"]`;
+        if (validate(xpath)) return { xpath, validated: true };
+    }
+
+    // --- STRATEGY 3: MULTI-ATTRIBUTE COMBINATION ---
+    const multiAttr = stableAttrs.map(attr => {
+        const val = el.getAttribute(attr);
+        return val ? `[@${attr}="${val}"]` : '';
+    }).join('');
+    if (multiAttr) {
+        const xpath = `//${el.tagName.toLowerCase()}${multiAttr}`;
         if (validate(xpath)) return { xpath, validated: true };
     }
 
