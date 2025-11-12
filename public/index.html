@@ -24,12 +24,42 @@
     <button id="refreshBtn">Refresh</button>
     <button id="clearBtn">Clear Data</button>
     <button id="exportBtn">Export to Excel</button>
+    <button id="generateSeleniumBtn">Generate Selenium Code</button>
     <button id="healthCheckBtn">Check Server</button>
   </div>
 
   <div id="serverStatus" style="margin: 10px 0; padding: 5px; display: none;"></div>
 
+  <div id="toast" style="position: fixed; top: 20px; right: 20px; background: #333; color: #fff; padding: 15px; border-radius: 5px; display: none; z-index: 1000;"></div>
+
   <script>
+    // Toast notification function
+    function showToast(message, isError = false) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.style.background = isError ? '#dc3545' : '#28a745';
+      toast.style.display = 'block';
+      setTimeout(() => {
+        toast.style.display = 'none';
+      }, 5000);
+    }
+
+    // Function to generate selenium script
+    async function generateSelenium() {
+      showToast('Generating Selenium script...');
+      try {
+        const res = await fetch('/generate-selenium', { method: 'POST' });
+        const data = await res.json();
+        if (data.ok) {
+          showToast(`Script generated at: ${data.filePath}`);
+        } else {
+          showToast(`Error: ${data.error}`, true);
+        }
+      } catch (err) {
+        showToast(`Request failed: ${err.message}`, true);
+      }
+    }
+
     // Add this function
     async function checkServerHealth() {
       const statusDiv = document.getElementById('serverStatus');
@@ -176,6 +206,7 @@
     document.getElementById('refreshBtn').addEventListener('click', fetchTestCases);
     document.getElementById('clearBtn').addEventListener('click', clearData);
     document.getElementById('exportBtn').addEventListener('click', exportToExcel);
+    document.getElementById('generateSeleniumBtn').addEventListener('click', generateSelenium);
 
     // Initial load and start auto-refresh
     fetchTestCases();

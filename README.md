@@ -63,5 +63,30 @@ B) npm install
 C) npm start
 
 
+## Generating Selenium Scripts
+
+This tool can automatically generate a Python Selenium script from your recorded actions.
+
+1. **Record Actions**: Use the browser extension to record a user flow on any website.
+2. **Open Dashboard**: Navigate to `http://localhost:3000` to see the recorded test cases.
+3. **Generate Script**: Click the "Generate Selenium Code" button.
+4. **Find Your Files**: The generated script and a folder for screenshots will be saved in the `generated-scripts` directory in the project's root.
+
+### Running the Generated Script
+
+To run the generated test script, you'll need:
+
+- Python 3
+- Selenium (`pip install selenium`)
+- A WebDriver for your browser (e.g., ChromeDriver)
+
+Execute the script from your terminal:
+
+```bash
+python generated-scripts/your_test_script_name.py
+```
+
+---
+
 <img width="2775" height="6192" alt="image" src="https://github.com/user-attachments/assets/86c97616-970d-4422-a99d-125f9e7e6f94" />
 
