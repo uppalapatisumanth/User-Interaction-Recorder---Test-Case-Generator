@@ -2,6 +2,10 @@
 // Records actions and sends to background. Also injects a floating UI (Stop/Start + Clear).
 
 (() => {
+  if (window.location.href.startsWith('http://localhost:3000')) {
+    console.log('[Content] Recorder disabled on dashboard.');
+    return;
+  }
   let stopped = false; // toggled by the floating button
   let controlsVisible = true; // track if controls are visible
 
