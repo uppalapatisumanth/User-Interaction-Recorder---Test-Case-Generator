@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const fs = require("fs");
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
@@ -113,6 +114,97 @@ app.get('/export-excel', (_req, res) => {
   
   wb.write(fileName, res);
 });
+
+app.post('/generate-selenium', (req, res) => {
+  const outputDir = path.join(__dirname, 'generated-scripts');
+  const screenshotsDir = path.join(outputDir, 'screenshots');
+
+  // Create directories if they don't exist
+  if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+  if (!fs.existsSync(screenshotsDir)) fs.mkdirSync(screenshotsDir, { recursive: true });
+
+  try {
+    // NOTE: This will be implemented in the next step. For now, it's a placeholder.
+    const scriptContent = generateSeleniumScript(testCasesStore, 'screenshots');
+    const fileName = `test_suite_${Date.now()}.py`;
+    const scriptPath = path.join(outputDir, fileName);
+    fs.writeFileSync(scriptPath, scriptContent);
+
+    res.json({
+      ok: true,
+      message: 'Selenium script generated successfully.',
+      filePath: scriptPath,
+      folderPath: outputDir
+    });
+  } catch (error) {
+    console.error('Error generating Selenium script:', error);
+    res.status(500).json({ ok: false, error: 'Failed to generate Selenium script.' });
+  }
+});
+
+function generateSeleniumScript(testCases, screenshotsSubDir) {
+  const imports = `
+import unittest
+import time
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
+
+class GeneratedTestSuite(unittest.TestCase):
+    def setUp(self):
+        self.driver = webdriver.Chrome()
+        self.driver.implicitly_wait(10)
+        self.screenshots_dir = "${screenshotsSubDir}"
+
+    def tearDown(self):
+        self.driver.quit()
+
+    def test_recorded_flow(self):
+        driver = self.driver
+        wait = WebDriverWait(driver, 15)
+`;
+
+  const steps = testCases.map((tc, i) => {
+    let stepCode = `
+        # Step ${tc.step}: ${tc.action} on target "${tc.target}"
+        # URL: ${tc.url}
+        # Timestamp: ${new Date(tc.timestamp).toLocaleString()}
+`;
+
+    if (tc.action === 'navigation') {
+      stepCode += `        driver.get("${tc.url}")\n`;
+    } else {
+      const locator = `(By.XPATH, '${tc.xpath.replace(/'/g, "\\'")}')`;
+      stepCode += `
+        try:
+            element = wait.until(EC.presence_of_element_located(${locator}))
+`;
+      if (tc.action === 'click') {
+        stepCode += `            element.click()\n`;
+      } else if (tc.action === 'input') {
+        stepCode += `            element.clear()\n`;
+        stepCode += `            element.send_keys("${tc.value.replace(/"/g, '\\"')}")\n`;
+      }
+      stepCode += `
+            driver.save_screenshot(f"{self.screenshots_dir}/${i + 1}_${tc.action}.png")
+        except (TimeoutException, NoSuchElementException) as e:
+            print(f"Error in step ${tc.step}: Could not find element with XPATH ${tc.xpath}")
+            driver.save_screenshot(f"{self.screenshots_dir}/${i + 1}_${tc.action}_error.png")
+            self.fail(f"Test failed at step ${tc.step}: {e}")
+`;
+    }
+    return stepCode;
+  }).join('');
+
+  const suite = `
+if __name__ == "__main__":
+    unittest.main()
+`;
+
+  return imports + steps + suite;
+}
 
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
