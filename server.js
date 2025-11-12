@@ -187,10 +187,11 @@ class GeneratedTestSuite(unittest.TestCase):
         stepCode += `            element.clear()\n`;
         stepCode += `            element.send_keys("${tc.value.replace(/"/g, '\\"')}")\n`;
       }
+      const escapedXpath = tc.xpath.replace(/"/g, '\\"');
       stepCode += `
             driver.save_screenshot(f"{self.screenshots_dir}/${i + 1}_${tc.action}.png")
         except (TimeoutException, NoSuchElementException) as e:
-            print(f"Error in step ${tc.step}: Could not find element with XPATH ${tc.xpath}")
+            print(f"Error in step ${tc.step}: Could not find element with XPATH ${escapedXpath}")
             driver.save_screenshot(f"{self.screenshots_dir}/${i + 1}_${tc.action}_error.png")
             self.fail(f"Test failed at step ${tc.step}: {e}")
 `;
