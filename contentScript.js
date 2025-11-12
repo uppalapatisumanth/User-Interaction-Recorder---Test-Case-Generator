@@ -18,35 +18,88 @@
   }
 
   function getXPath(el) {
-    try {
-      if (!el || el.nodeType !== 1) return "";
-      if (el.id) return `//*[@id="${el.id}"]`;
+    if (!el || el.nodeType !== 1) return { xpath: "N/A", validated: false };
 
-      const attrs = ["name", "type", "aria-label", "role", "placeholder"];
-      for (const a of attrs) {
-        const val = el.getAttribute && el.getAttribute(a);
-        if (val) {
-          return `//${el.tagName.toLowerCase()}[@${a}="${val}"]`;
-        }
-      }
+    // --- Helper to validate ---
+    const validate = (xpath) => {
+      try {
+        const count = document.evaluate(`count(${xpath})`, document, null, XPathResult.NUMBER_TYPE, null).numberValue;
+        return count === 1;
+      } catch (e) { return false; }
+    };
 
-      const parts = [];
-      let node = el;
-      while (node && node.nodeType === 1 && node !== document.documentElement) {
-        let ix = 1;
-        let sib = node.previousElementSibling;
-        while (sib) {
-          if (sib.tagName === node.tagName) ix++;
-          sib = sib.previousElementSibling;
+    // --- Strategies (ordered by preference) ---
+    const strategies = [
+      // 1. ID
+      (e) => {
+        if (e.id) {
+          const xpath = `//*[@id="${e.id}"]`;
+          if (validate(xpath)) return xpath;
         }
-        parts.unshift(`${node.tagName.toLowerCase()}[${ix}]`);
-        node = node.parentElement;
+        return null;
+      },
+      // 2. Data attributes
+      (e) => {
+        const dataAttrs = Array.from(e.attributes).filter(a => a.name.startsWith('data-'));
+        for (const attr of dataAttrs) {
+          const xpath = `//${e.tagName.toLowerCase()}[@${attr.name}="${attr.value}"]`;
+          if (validate(xpath)) return xpath;
+        }
+        return null;
+      },
+      // 3. Aria-label or Accessible Name
+      (e) => {
+        const label = e.getAttribute('aria-label') || e.textContent.trim();
+        if (label) {
+          const xpath = `//${e.tagName.toLowerCase()}[normalize-space()="${label}"]`;
+          if (validate(xpath)) return xpath;
+        }
+        return null;
+      },
+      // 4. Stable attributes
+      (e) => {
+        const stableAttrs = ["name", "role", "alt", "placeholder", "title", "type"];
+        for (const attr of stableAttrs) {
+          const val = e.getAttribute(attr);
+          if (val) {
+            const xpath = `//${e.tagName.toLowerCase()}[@${attr}="${val}"]`;
+            if (validate(xpath)) return xpath;
+          }
+        }
+        return null;
+      },
+      // 5. DOM position (fallback)
+      (e) => {
+        const parts = [];
+        let node = e;
+        while (node && node.nodeType === 1 && node !== document.documentElement) {
+          let ix = 1;
+          let sib = node.previousElementSibling;
+          while (sib) {
+            if (sib.tagName === node.tagName) ix++;
+            sib = sib.previousElementSibling;
+          }
+          parts.unshift(`${node.tagName.toLowerCase()}[${ix}]`);
+          node = node.parentElement;
+        }
+        return parts.length ? '/' + parts.join('/') : null;
       }
-      return '/' + parts.join('/');
-    } catch (e) {
-      console.warn('[Content] getXPath failed:', e);
-      return 'N/A';
+    ];
+
+    // --- Execute strategies ---
+    for (const strategy of strategies) {
+      try {
+        const xpath = strategy(el);
+        if (xpath) {
+          const isValid = validate(xpath);
+          return { xpath, validated: isValid, needsReview: !isValid };
+        }
+      } catch (err) {
+        console.warn('[Content] XPath strategy failed:', err);
+      }
     }
+
+    return { xpath: "N/A", validated: false, needsReview: true };
   }
 
   function currentUrl() {
@@ -87,12 +140,15 @@
   function captureClick(e) {
     if (stopped) return;
     const el = e.target;
+    const { xpath, validated, needsReview } = getXPath(el);
     const action = {
       type: 'click',
       target: toLabel(el),
       value: '',
       url: currentUrl(),
-      xpath: getXPath(el),
+      xpath,
+      xpathValidated: validated,
+      xpathNeedsReview: needsReview,
       timestamp: safeNow()
     };
     console.log('[Content] Click action:', action);
@@ -103,12 +159,15 @@
     if (stopped) return;
     const el = e.target;
     if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return;
+    const { xpath, validated, needsReview } = getXPath(el);
     const action = {
       type: 'input',
       target: toLabel(el),
       value: el.value ?? '',
       url: currentUrl(),
-      xpath: getXPath(el),
+      xpath,
+      xpathValidated: validated,
+      xpathNeedsReview: needsReview,
       timestamp: safeNow()
     };
     console.log('[Content] Input action:', action);
@@ -118,12 +177,15 @@
   function captureSubmit(e) {
     if (stopped) return;
     const el = e.target;
+    const { xpath, validated, needsReview } = getXPath(el);
     const action = {
       type: 'formSubmit',
       target: toLabel(el),
       value: '',
       url: currentUrl(),
-      xpath: getXPath(el),
+      xpath,
+      xpathValidated: validated,
+      xpathNeedsReview: needsReview,
       timestamp: safeNow()
     };
     console.log('[Content] Form submit action:', action);
@@ -138,6 +200,8 @@
       value: '',
       url: currentUrl(),
       xpath: 'N/A',
+      xpathValidated: true,
+      xpathNeedsReview: false,
       timestamp: safeNow()
     };
     console.log('[Content] Navigation action:', action);
