@@ -230,7 +230,9 @@
     let value = el.value ?? '';
     if (el.tagName === 'SELECT') {
         const selectedOption = el.options[el.selectedIndex];
-        value = selectedOption.text || selectedOption.value;
+        if (selectedOption) {
+            value = selectedOption.text || selectedOption.value;
+        }
     }
 
     if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)) return;
