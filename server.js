@@ -152,7 +152,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, StaleElementReferenceException
 
 SCREENSHOTS_DIR = "${screenshotsSubDir}"
 DEBUG_DIR = "debug"
@@ -192,6 +192,21 @@ def find_element_with_retry(driver, wait, step_num, xpath, css_selector):
             print(f"----------------------\\n")
 
             raise
+
+def wait_for_page_load(driver, wait, old_element=None, timeout=10):
+    """
+    Waits for a page to load by checking for staleness of an old element
+    or waiting for the new page's body to be present.
+    """
+    if old_element:
+        try:
+            wait.until(EC.staleness_of(old_element))
+        except TimeoutException:
+            print("Timed out waiting for old element to become stale.")
+
+    # Also wait for the new page's body to be ready
+    wait.until(EC.presence_of_element_located((By.TAG_NAME, 'body')))
+    time.sleep(1) # A small buffer
 
 def test_recorded_flow(driver):
     wait = WebDriverWait(driver, 15)
@@ -234,16 +249,20 @@ def test_recorded_flow(driver):
 
         stepCode += `        element.click()\n`;
         if (isSubmitClick) {
-            stepCode += `        time.sleep(2) # Allow time for form submission to process\n`;
+            // Check if this is the login form specifically
+            if (tc.xpath.includes('login_form') || (nextTc.target && nextTc.target.includes('login_form'))) {
+                stepCode += `        wait_for_page_load(driver, wait, old_element=element)\n`;
+            } else {
+                stepCode += `        time.sleep(2) # Allow time for form submission\n`;
+            }
             i++; // Skip the next 'formSubmit' action
         }
       } else if (tc.action === 'input') {
         stepCode += `        element.clear()\n`;
         stepCode += `        element.send_keys("${tc.value.replace(/"/g, '\\"')}")\n`;
       } else if (tc.action === 'formSubmit') {
-        // This case handles form submits not triggered by a click (e.g., pressing Enter)
         stepCode += `        element.submit()\n`;
-        stepCode += `        time.sleep(2) # Allow time for form submission to process\n`;
+        stepCode += `        wait_for_page_load(driver, wait, old_element=element)\n`;
       }
 
       stepCode += `

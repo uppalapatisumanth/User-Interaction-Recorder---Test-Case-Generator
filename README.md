@@ -89,9 +89,13 @@ Execute the script from your terminal using the `pytest` command:
 pytest generated-scripts/your_test_script_name.py
 ```
 
-### How It Works: Intelligent Form Handling
+### How It Works: Intelligent Form and Page Load Handling
 
-The script generator is designed to be robust. It automatically detects when a `click` on a submit button is followed by a `formSubmit` event. Instead of creating two separate steps, it combines them into a single `click` action and adds a 2-second pause to allow the page to load, preventing element-not-found errors.
+The script generator is designed to be robust and reliable. Here’s how it handles common web automation challenges:
+
+-   **Intelligent Form Submission**: It automatically detects when a `click` on a submit button is followed by a `formSubmit` event. Instead of creating two separate steps, it combines them into a single `click` action.
+
+-   **Reliable Page Load Waits**: After a form submission, the script doesn’t just wait for a fixed time. Instead, it uses a `wait_for_page_load` function that intelligently waits for the previous page's elements to become "stale." This confirms that a navigation has actually occurred, making the tests much more stable and less prone to intermittent failures.
 
 ---
 
