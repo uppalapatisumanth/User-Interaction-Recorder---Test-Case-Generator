@@ -19,5 +19,8 @@
 "all_frames": true,
 "match_about_blank": false
 }
-]
+],
+"content_security_policy": {
+"extension_pages": "script-src 'self'; object-src 'self'; connect-src http://localhost:3000;"
+}
 }
