@@ -157,21 +157,6 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException,
 SCREENSHOTS_DIR = "${screenshotsSubDir}"
 DEBUG_DIR = "debug"
 
-@pytest.fixture
-def driver():
-    # Setup
-    driver = webdriver.Chrome()
-    driver.implicitly_wait(10)
-    if not os.path.exists(SCREENSHOTS_DIR):
-        os.makedirs(SCREENSHOTS_DIR)
-    if not os.path.exists(DEBUG_DIR):
-        os.makedirs(DEBUG_DIR)
-
-    yield driver
-
-    # Teardown
-    driver.quit()
-
 def find_element_with_retry(driver, wait, step_num, xpath, css_selector):
     try:
         return wait.until(EC.element_to_be_clickable((By.XPATH, xpath)))
@@ -208,15 +193,20 @@ def wait_for_page_load(driver, wait, old_element=None, timeout=10):
     wait.until(EC.presence_of_element_located((By.TAG_NAME, 'body')))
     time.sleep(1) # A small buffer
 
-def test_recorded_flow(driver):
-    wait = WebDriverWait(driver, 15)
+def test_recorded_flow(selenium):
+    if not os.path.exists(SCREENSHOTS_DIR):
+        os.makedirs(SCREENSHOTS_DIR)
+    if not os.path.exists(DEBUG_DIR):
+        os.makedirs(DEBUG_DIR)
+
+    wait = WebDriverWait(selenium, 15)
 `;
 
   let initialNavigation = '';
   if (testCases.length > 0 && testCases[0].action !== 'navigation') {
     initialNavigation = `
     # --- CRITICAL: Auto-generated navigation to start the test ---
-    driver.get("${testCases[0].url}")
+    selenium.get("${testCases[0].url}")
     time.sleep(1)
 `;
   }
@@ -233,7 +223,7 @@ def test_recorded_flow(driver):
 `;
 
     if (tc.action === 'navigation') {
-      stepCode += `    driver.get("${tc.url}")\n`;
+      stepCode += `    selenium.get("${tc.url}")\n`;
       stepCode += `    time.sleep(1)\n`;
     } else {
       const xpath = tc.xpath.replace(/'/g, "\\'");
@@ -241,7 +231,7 @@ def test_recorded_flow(driver):
 
       stepCode += `
     try:
-        element = find_element_with_retry(driver, wait, ${stepCounter}, '${xpath}', '${cssSelector}')
+        element = find_element_with_retry(selenium, wait, ${stepCounter}, '${xpath}', '${cssSelector}')
 `;
       if (tc.action === 'click') {
         const nextTc = testCases[i + 1];
@@ -249,9 +239,8 @@ def test_recorded_flow(driver):
 
         stepCode += `        element.click()\n`;
         if (isSubmitClick) {
-            // Check if this is the login form specifically
             if (tc.xpath.includes('login_form') || (nextTc.target && nextTc.target.includes('login_form'))) {
-                stepCode += `        wait_for_page_load(driver, wait, old_element=element)\n`;
+                stepCode += `        wait_for_page_load(selenium, wait, old_element=element)\n`;
             } else {
                 stepCode += `        time.sleep(2) # Allow time for form submission\n`;
             }
@@ -262,14 +251,14 @@ def test_recorded_flow(driver):
         stepCode += `        element.send_keys("${tc.value.replace(/"/g, '\\"')}")\n`;
       } else if (tc.action === 'formSubmit') {
         stepCode += `        element.submit()\n`;
-        stepCode += `        wait_for_page_load(driver, wait, old_element=element)\n`;
+        stepCode += `        wait_for_page_load(selenium, wait, old_element=element)\n`;
       }
 
       stepCode += `
-        driver.save_screenshot(os.path.join(SCREENSHOTS_DIR, f"${stepCounter}_${tc.action}.png"))
+        selenium.save_screenshot(os.path.join(SCREENSHOTS_DIR, f"${stepCounter}_${tc.action}.png"))
     except (TimeoutException, NoSuchElementException) as e:
         error_screenshot_path = os.path.join(SCREENSHOTS_DIR, f"${stepCounter}_${tc.action}_error.png")
-        driver.save_screenshot(error_screenshot_path)
+        selenium.save_screenshot(error_screenshot_path)
         pytest.fail(f"Test failed at step ${stepCounter}. See debug info. Screenshot: {error_screenshot_path}", pytrace=False)
 `;
     }

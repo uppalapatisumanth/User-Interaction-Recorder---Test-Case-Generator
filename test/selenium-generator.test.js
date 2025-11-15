@@ -17,13 +17,11 @@ describe('generateSeleniumScript', () => {
     // Assertions for pytest structure
     assert.ok(script.includes('import pytest'));
     assert.ok(script.includes('from selenium import webdriver'));
-    assert.ok(script.includes('@pytest.fixture'));
-    assert.ok(script.includes('def driver():'));
-    assert.ok(script.includes('def test_recorded_flow(driver):'));
+    assert.ok(script.includes('def test_recorded_flow(selenium):'));
 
     // Assertions for script content
-    assert.ok(script.includes('driver.get("https://example.com")'));
-    assert.ok(script.includes("element = find_element_with_retry(driver, wait, 2, '//*[@id=\"myButton\"]', '#myButton')"));
+    assert.ok(script.includes('selenium.get("https://example.com")'));
+    assert.ok(script.includes("element = find_element_with_retry(selenium, wait, 2, '//*[@id=\"myButton\"]', '#myButton')"));
     assert.ok(script.includes('element.click()'));
     assert.ok(script.includes('element.send_keys("test")'));
   });
@@ -31,8 +29,8 @@ describe('generateSeleniumScript', () => {
   it('should handle empty test cases', () => {
     const script = generateSeleniumScript([], 'screenshots');
     assert.ok(script.includes('import pytest'));
-    assert.ok(script.includes('def test_recorded_flow(driver):'));
-    assert.ok(!script.includes('driver.get'));
+    assert.ok(script.includes('def test_recorded_flow(selenium):'));
+    assert.ok(!script.includes('selenium.get'));
   });
 });
 
