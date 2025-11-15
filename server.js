@@ -131,6 +131,11 @@ app.post('/generate-selenium', (req, res) => {
     const scriptPath = path.join(outputDir, fileName);
     fs.writeFileSync(scriptPath, scriptContent);
 
+    // Add a pytest.ini to set default driver
+    const pytestIniContent = `[pytest]\ndriver = Chrome\n`;
+    const pytestIniPath = path.join(outputDir, 'pytest.ini');
+    fs.writeFileSync(pytestIniPath, pytestIniContent);
+
     res.json({
       ok: true,
       message: 'Selenium script generated successfully.',
