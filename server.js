@@ -131,11 +131,6 @@ app.post('/generate-selenium', (req, res) => {
     const scriptPath = path.join(outputDir, fileName);
     fs.writeFileSync(scriptPath, scriptContent);
 
-    // Add a pytest.ini to set default driver
-    const pytestIniContent = `[pytest]\ndriver = Chrome\n`;
-    const pytestIniPath = path.join(outputDir, 'pytest.ini');
-    fs.writeFileSync(pytestIniPath, pytestIniContent);
-
     res.json({
       ok: true,
       message: 'Selenium script generated successfully.',
@@ -161,6 +156,13 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException,
 
 SCREENSHOTS_DIR = "${screenshotsSubDir}"
 DEBUG_DIR = "debug"
+
+@pytest.fixture
+def selenium():
+    driver = webdriver.Chrome()
+    driver.implicitly_wait(10)
+    yield driver
+    driver.quit()
 
 def find_element_with_retry(driver, wait, step_num, xpath, css_selector):
     try:

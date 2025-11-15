@@ -17,33 +17,29 @@ self.addEventListener("activate", () => log("Service worker activated"));
 log("Service worker started.");
 
 
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-try {
-log("Received message:", msg);
-if (!msg || typeof msg !== "object") return;
+chrome.runtime.onConnect.addListener((port) => {
+  log("Connection from", port.sender.tab.url);
+  port.onMessage.addListener((msg) => {
+    try {
+      if (!msg || typeof msg !== "object") return;
 
+      if (msg.type === "record-action" && msg.action) {
+        queue.push(msg.action);
+        scheduleFlush();
+        port.postMessage({ ok: true, received: msg.action.type });
+      }
 
-if (msg.type === "record-action" && msg.action) {
-queue.push(msg.action);
-scheduleFlush();
-sendResponse && sendResponse({ ok: true });
-return true; // keep the message channel open for async if needed
-}
+      if (msg.type === "clear-server") {
+        clearServer().then((r) => port.postMessage(r));
+      }
 
-
-if (msg.type === "clear-server") {
-clearServer().then((r) => sendResponse && sendResponse(r));
-return true;
-}
-
-
-if (msg.type === "ping") {
-sendResponse && sendResponse({ ok: true, ts: Date.now() });
-return true;
-}
-} catch (e) {
-log("Error in onMessage:", e);
-}
+      if (msg.type === "ping") {
+        port.postMessage({ ok: true, ts: Date.now() });
+      }
+    } catch (e) {
+      log("Error in onMessage:", e);
+    }
+  });
 });
 
 

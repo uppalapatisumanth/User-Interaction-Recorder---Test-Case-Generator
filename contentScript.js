@@ -164,20 +164,24 @@
     try { return location.href; } catch { return ''; }
   }
 
+  let port = null;
+  try {
+    port = chrome.runtime.connect({ name: "content-script" });
+    port.onDisconnect.addListener(() => {
+      port = null;
+      console.warn('[Content] Connection to background script lost. Re-establishing...');
+      // Optional: re-establish connection here if needed
+    });
+  } catch (e) {
+    console.warn('[Content] Could not connect to background script:', e);
+  }
+
   function send(action) {
     const payload = { type: 'record-action', action };
-    if (chrome?.runtime?.id) {
-      chrome.runtime.sendMessage(payload, (res) => {
-        if (chrome.runtime.lastError) {
-          console.warn('[Content] sendMessage error:', chrome.runtime.lastError.message);
-          // Fallback to direct server communication if background script fails
-          sendDirectToServer([action]);
-        } else {
-          console.log('[Content] Ack from background:', res);
-        }
-      });
+    if (port) {
+      port.postMessage(payload);
     } else {
-      console.warn('[Content] chrome.runtime not available — using direct POST fallback');
+      console.warn('[Content] No active port to background script. Falling back to direct POST.');
       sendDirectToServer([action]);
     }
   }
