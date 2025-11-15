@@ -6,30 +6,32 @@ const assert = require('assert');
 const { generateSeleniumScript } = require('../server'); // Assuming the function is exported
 
 describe('generateSeleniumScript', () => {
-  it('should generate a valid Python script', () => {
+  it('should generate a valid Python script for pytest', () => {
     const testCases = [
-      { step: 1, action: 'navigation', url: 'https://example.com', timestamp: Date.now() },
-      { step: 2, action: 'click', target: 'button', xpath: '//*[@id="myButton"]', timestamp: Date.now() },
-      { step: 3, action: 'input', target: 'input', value: 'test', xpath: '//*[@name="myInput"]', timestamp: Date.now() }
+      { step: 1, action: 'navigation', url: 'https://example.com', timestamp: Date.now(), xpath: '', cssSelector: '' },
+      { step: 2, action: 'click', target: 'button', xpath: '//*[@id="myButton"]', cssSelector: '#myButton', timestamp: Date.now() },
+      { step: 3, action: 'input', target: 'input', value: 'test', xpath: '//*[@name="myInput"]', cssSelector: '[name="myInput"]', timestamp: Date.now() }
     ];
     const script = generateSeleniumScript(testCases, 'screenshots');
 
-    // Basic assertions to check for key parts of the script
-    assert.ok(script.includes('import unittest'));
+    // Assertions for pytest structure
+    assert.ok(script.includes('import pytest'));
     assert.ok(script.includes('from selenium import webdriver'));
-    assert.ok(script.includes('class GeneratedTestSuite(unittest.TestCase):'));
-    assert.ok(script.includes('def setUp(self):'));
-    assert.ok(script.includes('def tearDown(self):'));
-    assert.ok(script.includes('def test_recorded_flow(self):'));
+    assert.ok(script.includes('@pytest.fixture'));
+    assert.ok(script.includes('def driver():'));
+    assert.ok(script.includes('def test_recorded_flow(driver):'));
+
+    // Assertions for script content
     assert.ok(script.includes('driver.get("https://example.com")'));
-    assert.ok(script.includes("element = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id=\"myButton\"]')))"));
-    assert.ok(script.includes("element.send_keys(\\"test\\")"));
-    assert.ok(script.includes('if __name__ == "__main__":'));
+    assert.ok(script.includes("element = find_element_with_retry(driver, wait, 2, '//*[@id=\"myButton\"]', '#myButton')"));
+    assert.ok(script.includes('element.click()'));
+    assert.ok(script.includes('element.send_keys("test")'));
   });
 
   it('should handle empty test cases', () => {
     const script = generateSeleniumScript([], 'screenshots');
-    assert.ok(script.includes('class GeneratedTestSuite(unittest.TestCase):'));
+    assert.ok(script.includes('import pytest'));
+    assert.ok(script.includes('def test_recorded_flow(driver):'));
     assert.ok(!script.includes('driver.get'));
   });
 });

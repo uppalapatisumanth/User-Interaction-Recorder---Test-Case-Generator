@@ -206,10 +206,14 @@ def test_recorded_flow(driver):
 `;
   }
 
-  const steps = testCases.map((tc, i) => {
-    const stepNum = i + 1;
+  let steps = '';
+  let stepCounter = 1;
+
+  for (let i = 0; i < testCases.length; i++, stepCounter++) {
+    const tc = testCases[i];
+
     let stepCode = `
-    # Step ${stepNum}: ${tc.action} on target "${tc.target}"
+    # Step ${stepCounter}: ${tc.action} on target "${tc.target}"
     # URL: ${tc.url}
 `;
 
@@ -219,26 +223,39 @@ def test_recorded_flow(driver):
     } else {
       const xpath = tc.xpath.replace(/'/g, "\\'");
       const cssSelector = tc.cssSelector.replace(/'/g, "\\'");
+
       stepCode += `
     try:
-        element = find_element_with_retry(driver, wait, ${stepNum}, '${xpath}', '${cssSelector}')
+        element = find_element_with_retry(driver, wait, ${stepCounter}, '${xpath}', '${cssSelector}')
 `;
       if (tc.action === 'click') {
+        const nextTc = testCases[i + 1];
+        const isSubmitClick = nextTc && nextTc.action === 'formSubmit';
+
         stepCode += `        element.click()\n`;
+        if (isSubmitClick) {
+            stepCode += `        time.sleep(2) # Allow time for form submission to process\n`;
+            i++; // Skip the next 'formSubmit' action
+        }
       } else if (tc.action === 'input') {
         stepCode += `        element.clear()\n`;
         stepCode += `        element.send_keys("${tc.value.replace(/"/g, '\\"')}")\n`;
+      } else if (tc.action === 'formSubmit') {
+        // This case handles form submits not triggered by a click (e.g., pressing Enter)
+        stepCode += `        element.submit()\n`;
+        stepCode += `        time.sleep(2) # Allow time for form submission to process\n`;
       }
+
       stepCode += `
-        driver.save_screenshot(os.path.join(SCREENSHOTS_DIR, f"${stepNum}_${tc.action}.png"))
+        driver.save_screenshot(os.path.join(SCREENSHOTS_DIR, f"${stepCounter}_${tc.action}.png"))
     except (TimeoutException, NoSuchElementException) as e:
-        error_screenshot_path = os.path.join(SCREENSHOTS_DIR, f"${stepNum}_${tc.action}_error.png")
+        error_screenshot_path = os.path.join(SCREENSHOTS_DIR, f"${stepCounter}_${tc.action}_error.png")
         driver.save_screenshot(error_screenshot_path)
-        pytest.fail(f"Test failed at step ${stepNum}. See debug info. Screenshot: {error_screenshot_path}", pytrace=False)
+        pytest.fail(f"Test failed at step ${stepCounter}. See debug info. Screenshot: {error_screenshot_path}", pytrace=False)
 `;
     }
-    return stepCode;
-  }).join('');
+    steps += stepCode;
+  }
 
   return imports + initialNavigation + steps;
 }
@@ -255,3 +272,5 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`✅ Server running at http://localhost:${PORT}`);
 });
+
+module.exports = { generateSeleniumScript };

@@ -89,6 +89,10 @@ Execute the script from your terminal using the `pytest` command:
 pytest generated-scripts/your_test_script_name.py
 ```
 
+### How It Works: Intelligent Form Handling
+
+The script generator is designed to be robust. It automatically detects when a `click` on a submit button is followed by a `formSubmit` event. Instead of creating two separate steps, it combines them into a single `click` action and adds a 2-second pause to allow the page to load, preventing element-not-found errors.
+
 ---
 
 <img width="2775" height="6192" alt="image" src="https://github.com/user-attachments/assets/86c97616-970d-4422-a99d-125f9e7e6f94" />
