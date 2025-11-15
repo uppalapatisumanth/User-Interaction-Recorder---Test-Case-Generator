@@ -77,9 +77,9 @@ This tool can automatically generate a Python Selenium script from your recorded
 To run the generated test script, you'll need:
 
 - Python 3
-- The `pytest` framework and the `pytest-selenium` library. Install them with pip:
+- The `pytest` framework and `selenium` library. Install them with pip:
   ```bash
-  pip install pytest pytest-selenium
+  pip install pytest selenium
   ```
 - A WebDriver for your browser (e.g., ChromeDriver).
 
@@ -97,9 +97,9 @@ pytest --driver Firefox generated-scripts/your_test_script_name.py
 
 ### How It Works: Framework-Powered Script Generation
 
-The script generator is designed to be concise and robust, leveraging the power of the `pytest-selenium` framework. Here’s how it simplifies the generated code:
+The script generator is designed to be concise and robust, leveraging the power of the `pytest` framework. Here’s how it simplifies the generated code:
 
--   **Automatic Driver Management**: The `selenium` fixture from `pytest-selenium` automatically handles the setup and teardown of the WebDriver instance, eliminating boilerplate code.
+-   **Automatic Driver Management**: A custom `selenium` fixture is automatically included in the generated script. This fixture handles the setup and teardown of the WebDriver instance, eliminating boilerplate code and ensuring that the browser is properly closed after the test runs.
 
 -   **Concise and Readable Tests**: By using the `selenium` fixture, the generated tests are more focused on the actions being performed, making them easier to read and maintain.
 
