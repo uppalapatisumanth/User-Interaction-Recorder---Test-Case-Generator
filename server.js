@@ -197,6 +197,15 @@ def test_recorded_flow(driver):
     wait = WebDriverWait(driver, 15)
 `;
 
+  let initialNavigation = '';
+  if (testCases.length > 0 && testCases[0].action !== 'navigation') {
+    initialNavigation = `
+    # --- CRITICAL: Auto-generated navigation to start the test ---
+    driver.get("${testCases[0].url}")
+    time.sleep(1)
+`;
+  }
+
   const steps = testCases.map((tc, i) => {
     const stepNum = i + 1;
     let stepCode = `
@@ -231,7 +240,7 @@ def test_recorded_flow(driver):
     return stepCode;
   }).join('');
 
-  return imports + steps;
+  return imports + initialNavigation + steps;
 }
 
 // Serve static files
