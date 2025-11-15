@@ -83,10 +83,16 @@ To run the generated test script, you'll need:
   ```
 - A WebDriver for your browser (e.g., ChromeDriver).
 
-Execute the script from your terminal using the `pytest` command:
+Execute the script from your terminal using the `pytest` command. By default, the tests will run using Chrome.
 
 ```bash
 pytest generated-scripts/your_test_script_name.py
+```
+
+To use a different browser, you can pass the `--driver` flag:
+
+```bash
+pytest --driver Firefox generated-scripts/your_test_script_name.py
 ```
 
 ### How It Works: Framework-Powered Script Generation
