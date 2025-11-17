@@ -1,27 +1,31 @@
 // contentScript.js
 // Records actions and sends to background. Also injects a floating UI (Stop/Start + Clear).
 
-(() => {
-  if (window.location.href.startsWith('http://localhost:3000')) {
-    console.log('[Content] Recorder disabled on dashboard.');
-    return;
-  }
-  let stopped = false; // toggled by the floating button
-  let controlsVisible = true; // track if controls are visible
+const UIR_RECORDER = {
+  init: () => {
+    if (window.location.href.startsWith('http://localhost:3000')) {
+      console.log('[Content] Recorder disabled on dashboard.');
+      return;
+    }
+    UIR_RECORDER.addEventListeners();
+    UIR_RECORDER.captureNavigation();
+    UIR_RECORDER.injectControls();
+    console.log('[Content] Recorder initialized');
+  },
 
   // --- Utilities ---
-  function safeNow() {
+  safeNow() {
     try { return Date.now(); } catch { return new Date().getTime(); }
-  }
+  },
 
-  function toLabel(el) {
+  toLabel(el) {
     if (!el || el.nodeType !== 1) return "";
     const id = el.id ? `#${el.id}` : "";
     const cls = el.className && typeof el.className === "string" ? `.${el.className.trim().replace(/\s+/g, '.')}` : "";
     return `${el.tagName}${id}${cls}`;
-  }
+  },
 
-  function getXPath(el) {
+  getXPath(el) {
     if (!el || el.nodeType !== 1) return { xpath: "N/A", validated: false, needsReview: true };
 
     const validate = (xpath) => {
@@ -118,9 +122,9 @@
     }
 
     return { xpath: "N/A", validated: false, needsReview: true };
-  }
+  },
 
-  function getCssSelector(el) {
+  getCssSelector(el) {
     if (!el || el.nodeType !== 1) return "N/A";
 
     const validate = (selector) => {
@@ -158,35 +162,37 @@
     }
 
     return "N/A";
-  }
+  },
 
-  function currentUrl() {
+  currentUrl() {
     try { return location.href; } catch { return ''; }
-  }
+  },
 
-  let port = null;
-  try {
-    port = chrome.runtime.connect({ name: "content-script" });
-    port.onDisconnect.addListener(() => {
-      port = null;
-      console.warn('[Content] Connection to background script lost. Re-establishing...');
-      // Optional: re-establish connection here if needed
-    });
-  } catch (e) {
-    console.warn('[Content] Could not connect to background script:', e);
-  }
+  port: null,
 
-  function send(action) {
+  connect() {
+    try {
+      this.port = chrome.runtime.connect({ name: "content-script" });
+      this.port.onDisconnect.addListener(() => {
+        this.port = null;
+        console.warn('[Content] Connection to background script lost. Re-establishing...');
+      });
+    } catch (e) {
+      console.warn('[Content] Could not connect to background script:', e);
+    }
+  },
+
+  send(action) {
     const payload = { type: 'record-action', action };
-    if (port) {
-      port.postMessage(payload);
+    if (UIR_RECORDER.port) {
+      UIR_RECORDER.port.postMessage(payload);
     } else {
       console.warn('[Content] No active port to background script. Falling back to direct POST.');
-      sendDirectToServer([action]);
+      UIR_RECORDER.sendDirectToServer([action]);
     }
-  }
+  },
 
-  function sendDirectToServer(actions) {
+  sendDirectToServer(actions) {
     console.log('[Content] Sending directly to server:', actions);
     fetch('http://localhost:3000/actions', {
       method: 'POST',
@@ -196,14 +202,14 @@
     .then(response => response.json())
     .then(data => console.log('[Content] Server response:', data))
     .catch(err => console.warn('[Content] direct POST failed:', err));
-  }
+  },
 
   // --- Event capture ---
-  function captureClick(e) {
-    if (stopped) return;
+  captureClick(e) {
+    if (this.stopped) return;
     const el = e.target;
-    const { xpath, validated, needsReview } = getXPath(el);
-    const cssSelector = getCssSelector(el);
+    const { xpath, validated, needsReview } = this.getXPath(el);
+    const cssSelector = this.getCssSelector(el);
 
     let value = '';
     if (el.hasAttribute('value')) {
@@ -214,21 +220,21 @@
 
     const action = {
       type: 'click',
-      target: toLabel(el),
+      target: UIR_RECORDER.toLabel(el),
       value: value,
-      url: currentUrl(),
+      url: UIR_RECORDER.currentUrl(),
       xpath,
       cssSelector,
       xpathValidated: validated,
       xpathNeedsReview: needsReview,
-      timestamp: safeNow()
+      timestamp: UIR_RECORDER.safeNow()
     };
     console.log('[Content] Click action:', action);
-    send(action);
-  }
+    UIR_RECORDER.send(action);
+  },
 
-  function captureInput(e) {
-    if (stopped) return;
+  captureInput(e) {
+    if (this.stopped) return;
     const el = e.target;
 
     let value = el.value ?? '';
@@ -240,62 +246,62 @@
     }
 
     if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)) return;
-    const { xpath, validated, needsReview } = getXPath(el);
-    const cssSelector = getCssSelector(el);
+    const { xpath, validated, needsReview } = this.getXPath(el);
+    const cssSelector = this.getCssSelector(el);
     const action = {
       type: 'input',
-      target: toLabel(el),
+      target: this.toLabel(el),
       value: value,
-      url: currentUrl(),
+      url: UIR_RECORDER.currentUrl(),
       xpath,
       cssSelector,
       xpathValidated: validated,
       xpathNeedsReview: needsReview,
-      timestamp: safeNow()
+      timestamp: UIR_RECORDER.safeNow()
     };
     console.log('[Content] Input action:', action);
-    send(action);
-  }
+    UIR_RECORDER.send(action);
+  },
 
-  function captureSubmit(e) {
-    if (stopped) return;
+  captureSubmit(e) {
+    if (this.stopped) return;
     const el = e.target;
-    const { xpath, validated, needsReview } = getXPath(el);
+    const { xpath, validated, needsReview } = this.getXPath(el);
     const cssSelector = getCssSelector(el);
     const action = {
       type: 'formSubmit',
-      target: toLabel(el),
+      target: UIR_RECORDER.toLabel(el),
       value: '',
-      url: currentUrl(),
+      url: UIR_RECORDER.currentUrl(),
       xpath,
       cssSelector,
       xpathValidated: validated,
       xpathNeedsReview: needsReview,
-      timestamp: safeNow()
+      timestamp: UIR_RECORDER.safeNow()
     };
     console.log('[Content] Form submit action:', action);
-    send(action);
-  }
+    UIR_RECORDER.send(action);
+  },
 
-  function captureNavigation() {
-    if (stopped) return;
+  captureNavigation() {
+    if (this.stopped) return;
     const action = {
       type: 'navigation',
       target: '',
       value: '',
-      url: currentUrl(),
+      url: UIR_RECORDER.currentUrl(),
       xpath: 'N/A',
       cssSelector: 'N/A',
       xpathValidated: true,
       xpathNeedsReview: false,
-      timestamp: safeNow()
+      timestamp: UIR_RECORDER.safeNow()
     };
     console.log('[Content] Navigation action:', action);
-    send(action);
-  }
+    UIR_RECORDER.send(action);
+  },
 
   // --- Floating controls ---
-  function injectControls() {
+  injectControls() {
     if (document.getElementById('uir-recorder-controls')) return;
     const root = document.createElement('div');
     root.id = 'uir-recorder-controls';
@@ -360,10 +366,10 @@
       }
     };
     attach();
-  }
+  },
   
   // Add a small button to restore controls when they're closed
-  function addRestoreButton() {
+  addRestoreButton() {
     const restoreBtn = document.createElement('button');
     restoreBtn.textContent = '⚙️';
     restoreBtn.id = 'uir-restore-button';
@@ -392,35 +398,34 @@
     };
     
     document.body.appendChild(restoreBtn);
-  }
+  },
 
   // Add this debounce function at the top with other utility functions
-  function debounce(func, wait) {
+  debounce(func, wait) {
     let timeout;
     return function(...args) {
       clearTimeout(timeout);
       timeout = setTimeout(() => func.apply(this, args), wait);
     };
-  }
+  },
   
   // Create a debounced version of captureInput
-  const debouncedCaptureInput = debounce((e) => {
-    captureInput(e);
-  }, 700); // Wait 500ms after the user stops typing
+  debouncedCaptureInput() {
+    return this.debounce((e) => {
+      this.captureInput(e);
+    }, 700);
+  },
   
-  // --- Init ---
-  function init() {
-    window.addEventListener('click', captureClick, true);
-    window.addEventListener('change', captureInput, true);
-    window.addEventListener('submit', captureSubmit, true);
-    captureNavigation();
-    injectControls();
-    console.log('[Content] Recorder initialized');
+  addEventListeners() {
+    window.addEventListener('click', UIR_RECORDER.captureClick, true);
+    window.addEventListener('change', UIR_RECORDER.captureInput, true);
+    window.addEventListener('submit', UIR_RECORDER.captureSubmit, true);
+    window.addEventListener('keyup', UIR_RECORDER.debouncedCaptureInput(), true);
   }
+};
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
-})();
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = UIR_RECORDER;
+} else {
+  UIR_RECORDER.init();
+}
