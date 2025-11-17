@@ -105,7 +105,9 @@ The script generator is designed to be concise and robust, leveraging the power 
 
 -   **Intelligent Form Submission**: It automatically detects when a `click` on a submit button is followed by a `formSubmit` event. Instead of creating two separate steps, it combines them into a single `click` action.
 
--   **Reliable Page Load Waits**: After a form submission, the script doesn’t just wait for a fixed time. Instead, it uses a `wait_for_page_load` function that intelligently waits for the previous page's elements to become "stale." This confirms that a navigation has actually occurred, making the tests much more stable and less prone to intermittent failures.
+-   **Reliable Page Load Waits**: After a form submission, a `wait_for_page_load` function intelligently waits for the previous page's elements to become "stale," ensuring that a navigation has actually occurred and making the tests much more stable.
+
+-   **Robust Dropdown Handling**: The tool now correctly identifies interactions with dropdown menus (`<select>` elements) and generates robust `Select(element).select_by_visible_text(...)` statements instead of fragile `send_keys` calls.
 
 ---
 

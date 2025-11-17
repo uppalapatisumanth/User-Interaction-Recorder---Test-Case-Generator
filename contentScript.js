@@ -237,15 +237,27 @@ const UIR_RECORDER = {
     if (this.stopped) return;
     const el = e.target;
 
-    let value = el.value ?? '';
     if (el.tagName === 'SELECT') {
-        const selectedOption = el.options[el.selectedIndex];
-        if (selectedOption) {
-            value = selectedOption.text || selectedOption.value;
-        }
+      const selectedOption = el.options[el.selectedIndex];
+      if (selectedOption) {
+        const action = {
+          type: 'select',
+          target: this.toLabel(el),
+          value: selectedOption.value,
+          text: selectedOption.text,
+          index: el.selectedIndex,
+          url: this.currentUrl(),
+          xpath: this.getXPath(el).xpath,
+          cssSelector: this.getCssSelector(el),
+          timestamp: this.safeNow()
+        };
+        this.send(action);
+      }
+      return;
     }
 
-    if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)) return;
+    let value = el.value ?? '';
+    if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return;
     const { xpath, validated, needsReview } = this.getXPath(el);
     const cssSelector = this.getCssSelector(el);
     const action = {
