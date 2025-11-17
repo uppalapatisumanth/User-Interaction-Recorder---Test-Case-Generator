@@ -169,7 +169,7 @@ import time
 import os
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, StaleElementReferenceException
 
@@ -275,6 +275,8 @@ def test_recorded_flow(selenium):
       } else if (tc.action === 'input') {
         stepCode += `        element.clear()\n`;
         stepCode += `        element.send_keys("${tc.value.replace(/"/g, '\\"')}")\n`;
+      } else if (tc.action === 'select') {
+        stepCode += `        Select(element).select_by_visible_text("${tc.text}")\n`;
       } else if (tc.action === 'formSubmit') {
         stepCode += `        element.submit()\n`;
         stepCode += `        wait_for_page_load(selenium, wait, old_element=element)\n`;
