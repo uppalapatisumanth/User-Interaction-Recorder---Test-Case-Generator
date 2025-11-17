@@ -1,11 +1,10 @@
 
-// This is a conceptual test and will not run in the current environment.
-// It is intended to demonstrate the testing approach for the value capturing logic.
-
 const assert = require('assert');
+const { JSDOM } = require('jsdom');
+const fs = require('fs');
+const path = require('path');
 
 // Mock a DOM environment for testing
-const { JSDOM } = require('jsdom');
 const dom = new JSDOM(`
   <!DOCTYPE html>
   <html>
@@ -20,85 +19,46 @@ const dom = new JSDOM(`
   </html>
 `);
 global.document = dom.window.document;
+global.window = dom.window;
+global.chrome = { runtime: { connect: () => ({ onDisconnect: { addListener: () => {} }, postMessage: () => {} }) } };
+global.XPathResult = { NUMBER_TYPE: 1 };
+global.HTMLInputElement = dom.window.HTMLInputElement;
+global.HTMLTextAreaElement = dom.window.HTMLTextAreaElement;
+global.HTMLSelectElement = dom.window.HTMLSelectElement;
 
-// Mock the send function
-let capturedAction = null;
-function send(action) {
-  capturedAction = action;
-}
 
-// The functions to be tested (copied from contentScript.js)
-function toLabel(el) {
-    if (!el || el.nodeType !== 1) return "";
-    const id = el.id ? `#${el.id}` : "";
-    const cls = el.className && typeof el.className === "string" ? `.${el.className.trim().replace(/\s+/g, '.')}` : "";
-    return `${el.tagName}${id}${cls}`;
-}
-function getXPath(el) { return { xpath: "mock-xpath", validated: true }; }
-function currentUrl() { return "mock-url"; }
-function safeNow() { return 12345; }
-
-function captureClick(e) {
-    const el = e.target;
-    const { xpath, validated, needsReview } = getXPath(el);
-    let value = '';
-    if (el.hasAttribute('value')) {
-        value = el.getAttribute('value');
-    } else if (el.textContent) {
-        value = el.textContent.trim();
-    }
-    const action = {
-      type: 'click',
-      target: toLabel(el),
-      value: value,
-      url: currentUrl(),
-      xpath,
-      xpathValidated: validated,
-      xpathNeedsReview: needsReview,
-      timestamp: safeNow()
-    };
-    send(action);
-}
-
-function captureInput(e) {
-    const el = e.target;
-    let value = el.value ?? '';
-    if (el.tagName === 'SELECT') {
-        const selectedOption = el.options[el.selectedIndex];
-        value = selectedOption.text || selectedOption.value;
-    }
-    const { xpath, validated, needsReview } = getXPath(el);
-    const action = {
-      type: 'input',
-      target: toLabel(el),
-      value: value,
-      url: currentUrl(),
-      xpath,
-      xpathValidated: validated,
-      xpathNeedsReview: needsReview,
-      timestamp: safeNow()
-    };
-    send(action);
-}
+const UIR_RECORDER = require('../contentScript');
 
 // --- Test Cases ---
 describe('Value Capturing', () => {
+  let capturedAction = null;
+
+  before(() => {
+    UIR_RECORDER.send = (action) => {
+      capturedAction = action;
+    };
+  });
+
+  beforeEach(() => {
+    capturedAction = null;
+  });
+
   it('should capture text content on click', () => {
     const el = document.getElementById('date-picker-value');
-    captureClick({ target: el });
+    UIR_RECORDER.captureClick({ target: el });
     assert.strictEqual(capturedAction.value, '12/25/2025');
   });
 
   it('should capture selected dropdown option text', () => {
     const el = document.getElementById('dropdown');
-    captureInput({ target: el });
+    UIR_RECORDER.captureInput({ target: el });
     assert.strictEqual(capturedAction.value, 'Option 2');
   });
 
   it('should capture final text input on blur', () => {
     const el = document.getElementById('text-input');
     el.value = 'final value';
-    captureInput({ target: el });
+    UIR_RECORDER.captureInput({ target: el });
     assert.strictEqual(capturedAction.value, 'final value');
   });
 });

@@ -7,8 +7,15 @@ const app = express();
 app.use(express.json({ limit: "1mb" }));
 
 // Global CORS (no wildcards)
+const allowedOrigins = ['http://localhost:3000'];
 app.use(cors({
-  origin: '*', // allow all origins
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin) || origin.startsWith('chrome-extension://')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
@@ -64,11 +71,23 @@ app.get("/testcases", (_req, res) => {
   res.json(testCasesStore);
 });
 
-app.post("/actions", (req, res) => {
+const validateActions = (req, res, next) => {
   const { actions } = req.body || {};
   if (!Array.isArray(actions)) {
     return res.status(400).json({ ok: false, error: "Invalid actions array" });
   }
+
+  for (const action of actions) {
+    if (!action.type || typeof action.type !== 'string') {
+      return res.status(400).json({ ok: false, error: "Invalid action type" });
+    }
+  }
+
+  next();
+};
+
+app.post("/actions", validateActions, (req, res) => {
+  const { actions } = req.body || {};
   actionsStore.push(...actions);
   const derived = actionsToTestCases(actions);
   testCasesStore.push(...derived);
