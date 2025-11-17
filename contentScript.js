@@ -412,7 +412,6 @@
   function init() {
     window.addEventListener('click', captureClick, true);
     window.addEventListener('change', captureInput, true);
-    window.addEventListener('blur', captureInput, true);
     // Replace with debounced version
     window.addEventListener('keyup', debouncedCaptureInput, true);
     window.addEventListener('submit', captureSubmit, true);
